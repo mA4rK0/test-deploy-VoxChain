@@ -1,27 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { ThirdwebProvider } from "thirdweb/react";
 import Navbar from "@/components/Navbar";
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "500", "700"],
-});
 
 export const metadata: Metadata = {
-  title: "Vox Chain Xero 01",
-  description: "Voting now before jokowi eat u",
+  title: "Vox Chain",
+  description: "A place for voting that is decentralised, free to vote, secure, and independent of third parties",
 };
 
 export default function RootLayout({
@@ -31,10 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
-      >
+      <body suppressHydrationWarning className={`antialiased`}>
         <ThirdwebProvider>
           <Navbar />
           {children}
