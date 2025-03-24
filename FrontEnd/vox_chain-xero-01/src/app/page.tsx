@@ -3,7 +3,6 @@
 import VotingComponents from "@/components/VotingComponents";
 import useHydration from "@/hooks/hydration";
 import { client } from "@/lib/client";
-import { useEffect } from "react";
 import { sepolia } from "thirdweb/chains";
 import {
   useActiveAccount,
@@ -16,32 +15,32 @@ const Page = () => {
   const { hydration } = useHydration();
   const { connect, isConnecting } = useConnectModal();
   const account = useActiveAccount();
-  const { data, error, isLoading } = useWalletBalance({
-    address: account?.address,
-    client: client,
-    chain: sepolia,
-  });
-
-  // account?.signMessage({ message: "hai", originalMessage: "huahaua" });
 
   async function handleConnect() {
-    const wallet = await connect({ client }); // opens the connect modal
-    await account?.signMessage({ message: "hehe" });
-    console.log("connected to", wallet);
+    try {
+      const wallet = await connect({ client }); // opens the connect modal
+      const account = wallet.getAccount();
+      await account?.signMessage({
+        message:
+          "welcome to voxchain. u can rest and eat some food and then vote azril",
+      });
+
+      console.log("connected to", account);
+    } catch (error) {
+      console.log(error);
+    }
   }
   return (
     <div
-      className={`w-full h-screen  ${
-        hydration && account?.address
-          ? " pt-20"
-          : "flex justify-center items-center"
+      className={` w-full h-screen ${
+        account?.address ? " pt-20" : "flex justify-center items-center"
       } font-inter`}
     >
       {/* Hero section */}
-      {hydration && account?.address ? (
+      {account?.address && !isConnecting ? (
         <VotingComponents />
       ) : (
-        <div className="grid grid-cols-1 grid-rows-3 xl:max-2xl:w-2/5  sm:w-1/2 gap-10 justify-center items-center  text-center">
+        <div className="grid container grid-cols-1 grid-rows-3 xl:max-2xl:w-2/5  sm:w-1/2 gap-10 justify-center items-center  text-center">
           <h1 className="font-bold xl:max-2xl:text-[5vw] lg:max-xl:text-[5.6vw] sm:max-lg:text-5xl text-4xl">
             VoxChain
           </h1>
@@ -52,13 +51,13 @@ const Page = () => {
 
           <button
             onClick={handleConnect}
-            className="bg-purple-light rounded-4xl text-white lg:text-2xl text-xl w-fit py-3 px-10  mx-auto hover:bg-purple-dark cursor-pointer"
+            disabled={!hydration}
+            className="bg-purple-light rounded-4xl text-white lg:text-2xl text-xl w-fit py-3 px-10  mx-auto hover:bg-purple-dark cursor-pointer disabled:cursor-wait"
           >
             Connect
           </button>
         </div>
       )}
-      {/* App section */}
     </div>
   );
 };

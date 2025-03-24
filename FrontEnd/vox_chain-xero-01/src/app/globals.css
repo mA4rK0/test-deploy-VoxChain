@@ -8,6 +8,18 @@
   --blue-sky: #ffffff;
 }
 
+/* Untuk Chrome, Safari, Edge */
+.countdown[type="number"]::-webkit-outer-spin-button,
+.countdown[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Untuk Firefox */
+.countdown[type="number"] {
+  -moz-appearance: textfield;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
