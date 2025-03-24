@@ -1,90 +1,138 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.20;
 
-contract VotingSystem {
-    error InsufficientCandidates(string[] _candidates);
-    error AlreadyVoted(address _voter);
-    error Ended(uint256 _duration);
-    error MaxVotesReached(uint256 _maxVotes);
-    error NotDoneYet(uint256 _time);
+contract VotingSystemFactory {
+    event PollCreated(address indexed pollAddress, string pollName, address creator);
 
-    event PollCreated(
-        address _creator,
-        string[] _candidates,
-        string _description,
-        uint256 _maxVotes,
-        uint256 _duration,
-        uint256 _startTime,
-        uint256 _totalVoters,
-        bool _isCompleted
-    );
-    event Voted(address _voter, string _candidate);
-
-    struct Poll {
-        address creator;
+    struct PollInfo {
+        address pollAddress;
         string pollName;
-        string[] candidates;
-        string description;
-        uint256 maxVotes;
-        uint256 duration;
-        uint256 startTime;
-        uint256 totalVoters;
-        bool isCompleted;
+        address creator;
     }
 
-    Poll poll;
-    string public winner;
-    mapping(string => uint256) public candidatesVotes;
-    mapping(address => bool) public hasVoted;
+    PollInfo[] public allPolls;
+    mapping(address => bool) public isPoll;
 
     function createPoll(
-        string calldata _name,
+        string calldata _pollName,
         string[] calldata _candidates,
         string calldata _description,
         uint256 _maxVotes,
         uint256 _duration
     ) external {
-        if (_candidates.length <= 0 || _candidates.length > 3) revert InsufficientCandidates(_candidates);
+        VotingPoll newPoll = new VotingPoll(msg.sender, _pollName, _candidates, _description, _maxVotes, _duration);
+        allPolls.push(PollInfo(address(newPoll), _pollName, msg.sender));
+        isPoll[address(newPoll)] = true;
 
-        emit PollCreated(
-            msg.sender, _candidates, _description, _maxVotes, _duration, block.timestamp + block.number, 0, false
-        );
-        for (uint8 i = 0; i < _candidates.length; i++) {
-            candidatesVotes[_candidates[i]] = 0;
+        emit PollCreated(address(newPoll), _pollName, msg.sender);
+    }
+
+    function getTotalPolls() external view returns (uint256) {
+        return allPolls.length;
+    }
+}
+
+contract VotingPoll {
+    error InsufficientCandidates(string[] _candidates);
+    error AlreadyVoted(address _voter);
+    error Ended(uint256 _duration);
+    error MaxVotesReached(uint256 _maxVotes);
+    error NotDoneYet(uint256 _time);
+    error AlreadyFinished(bool _completed);
+    error NoValidWinner();
+
+    event PollCreated(
+        address _creator,
+        string _pollName,
+        string[] _candidates,
+        string _description,
+        uint256 _maxVotes,
+        uint256 _duration,
+        uint256 _startTime
+    );
+    event Voted(address _voter, string _candidate);
+    event WinnerDeclared(string _winner, uint256 _votes);
+
+    struct Candidate {
+        string name;
+        uint256 votes;
+    }
+
+    address public creator;
+    string public pollName;
+    string[] public candidates;
+    string public description;
+    uint256 public maxVotes;
+    uint256 public duration;
+    uint256 public startTime;
+    uint256 public totalVoters;
+    bool public isCompleted;
+
+    mapping(string => uint256) public candidateVotes;
+    mapping(address => bool) public hasVoted;
+
+    constructor(
+        address _creator,
+        string memory _pollName,
+        string[] memory _candidates,
+        string memory _description,
+        uint256 _maxVotes,
+        uint256 _duration
+    ) {
+        if (_candidates.length < 2 || _candidates.length > 3) revert InsufficientCandidates(_candidates);
+
+        creator = _creator;
+        pollName = _pollName;
+        candidates = _candidates;
+        description = _description;
+        maxVotes = _maxVotes;
+        duration = _duration;
+        startTime = block.timestamp;
+        totalVoters = 0;
+        isCompleted = false;
+
+        for (uint256 i = 0; i < _candidates.length; i++) {
+            candidateVotes[_candidates[i]] = 0;
         }
-        poll = Poll(
-            msg.sender, _name, _candidates, _description, _maxVotes, _duration, block.timestamp + block.number, 0, false
-        );
+        emit PollCreated(_creator, _pollName, _candidates, _description, _maxVotes, _duration, startTime);
     }
 
     function vote(string calldata _candidate) external {
-        if (block.timestamp - poll.startTime >= poll.duration) revert Ended(poll.duration);
-        if (poll.totalVoters >= poll.maxVotes) revert MaxVotesReached(poll.maxVotes);
+        if (block.timestamp - startTime >= duration) revert Ended(duration);
+        if (totalVoters >= maxVotes) revert MaxVotesReached(maxVotes);
         if (hasVoted[msg.sender] == true) revert AlreadyVoted(msg.sender);
 
         hasVoted[msg.sender] = true;
+        totalVoters++;
+        candidateVotes[_candidate]++;
         emit Voted(msg.sender, _candidate);
-        poll.totalVoters++;
-        candidatesVotes[_candidate]++;
     }
 
     function chooseWinner() external {
-        if (block.timestamp - poll.startTime < poll.duration) revert NotDoneYet(poll.duration);
-        string memory win;
+        if (block.timestamp - startTime < duration) revert NotDoneYet(duration);
+        if (isCompleted) revert AlreadyFinished(isCompleted);
+        string memory winner;
+        uint256 highestVotes = 0;
 
-        for (uint8 i = 0; i <= poll.candidates.length; i++) {
-            if (i == 0) {
-                win = poll.candidates[i];
-            } else {
-                if (
-                    candidatesVotes[poll.candidates[i]] > candidatesVotes[poll.candidates[i + 1]]
-                        && candidatesVotes[poll.candidates[i]] > candidatesVotes[poll.candidates[i - 1]]
-                ) {
-                    win = poll.candidates[i];
-                }
+        for (uint256 i = 0; i < candidates.length; i++) {
+            uint256 votes = candidateVotes[candidates[i]];
+            if (votes > highestVotes) {
+                highestVotes = votes;
+                winner = candidates[i];
             }
         }
 
-        winner = win;
+        if (bytes(winner).length <= 0) revert NoValidWinner();
+        isCompleted = true;
+
+        emit WinnerDeclared(winner, highestVotes);
+    }
+
+    function getResults() external view returns (Candidate[] memory) {
+        Candidate[] memory results = new Candidate[](candidates.length);
+        for (uint256 i = 0; i < candidates.length; i++) {
+            results[i] = Candidate(candidates[i], candidateVotes[candidates[i]]);
+        }
+        return results;
     }
 }
