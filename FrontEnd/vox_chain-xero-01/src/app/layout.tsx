@@ -37,7 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
       >
         <ThirdwebProvider>
-          <Toaster />
+          <Toaster richColors />
           <Navbar />
           {children}
         </ThirdwebProvider>
