@@ -87,7 +87,7 @@ contract VotingPoll {
         description = _description;
         maxVotes = _maxVotes;
         duration = _duration;
-        startTime = block.timestamp;
+        startTime = block.timestamp + 1 seconds;
         totalVoters = 0;
         isCompleted = false;
 
