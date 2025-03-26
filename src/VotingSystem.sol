@@ -20,7 +20,7 @@ contract VotingSystemFactory {
         uint256 _maxVotes,
         uint256 _duration
     ) external {
-        VotingPoll newPoll = new VotingPoll(msg.sender, _pollName, _candidates, _description, _maxVotes, _duration);
+        VotingPoll newPoll = new VotingPoll(_pollName, _candidates, _description, _maxVotes, _duration);
         allPolls.push(PollInfo(address(newPoll), _pollName, msg.sender));
         isPoll[address(newPoll)] = true;
 
@@ -72,7 +72,6 @@ contract VotingPoll {
     mapping(address => bool) public hasVoted;
 
     constructor(
-        address _creator,
         string memory _pollName,
         string[] memory _candidates,
         string memory _description,
@@ -81,7 +80,7 @@ contract VotingPoll {
     ) {
         if (_candidates.length < 2 || _candidates.length > 3) revert InsufficientCandidates(_candidates);
 
-        creator = _creator;
+        creator = msg.sender;
         pollName = _pollName;
         candidates = _candidates;
         description = _description;
@@ -94,7 +93,7 @@ contract VotingPoll {
         for (uint256 i = 0; i < _candidates.length; i++) {
             candidateVotes[_candidates[i]] = 0;
         }
-        emit PollCreated(_creator, _pollName, _candidates, _description, _maxVotes, _duration, startTime);
+        emit PollCreated(msg.sender, _pollName, _candidates, _description, _maxVotes, _duration, startTime);
     }
 
     function vote(string calldata _candidate) external {
