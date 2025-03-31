@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 contract VotingSystemFactory {
     error IndexOutOfBounds(uint256 _index);
+
     event PollCreated(address indexed pollAddress, string indexed pollName, address creator);
 
     struct PollInfo {
@@ -33,9 +34,9 @@ contract VotingSystemFactory {
     }
 
     function getPoll(uint256 index) public view returns (PollInfo memory) {
-        if(index >= allPolls.length) revert IndexOutOfBounds(index);
+        if (index >= allPolls.length) revert IndexOutOfBounds(index);
         return allPolls[index];
-    }   
+    }
 }
 
 contract VotingPoll {
