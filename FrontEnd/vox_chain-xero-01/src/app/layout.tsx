@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { ThirdwebProvider } from "thirdweb/react";
 import Navbar from "@/components/Navbar";
+
 import { Toaster } from "sonner";
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,8 +21,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Vox Chain Xero 01",
-  description: "Voting now before jokowi eat u",
+  title: "Vox Chain",
+  description: "A place for voting that is decentralised, free to vote, secure, and independent of third parties",
 };
 
 export default function RootLayout({
@@ -32,10 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
-      >
+      <body suppressHydrationWarning className={`antialiased`}>
         <ThirdwebProvider>
           <Toaster richColors />
           <Navbar />
