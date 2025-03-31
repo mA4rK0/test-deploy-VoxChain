@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 contract VotingSystemFactory {
-    event PollCreated(address indexed pollAddress, string pollName, address creator);
+    error IndexOutOfBounds(uint256 _index);
+    event PollCreated(address indexed pollAddress, string indexed pollName, address creator);
 
     struct PollInfo {
         address pollAddress;
@@ -30,6 +31,11 @@ contract VotingSystemFactory {
     function getTotalPolls() external view returns (uint256) {
         return allPolls.length;
     }
+
+    function getPoll(uint256 index) public view returns (PollInfo memory) {
+        if(index >= allPolls.length) revert IndexOutOfBounds(index);
+        return allPolls[index];
+    }   
 }
 
 contract VotingPoll {
@@ -51,20 +57,20 @@ contract VotingPoll {
         uint256 _startTime
     );
     event Voted(address _voter, string _candidate);
-    event WinnerDeclared(string _winner, uint256 _votes);
+    event WinnerDeclared(string indexed _winner, uint256 _votes);
 
     struct Candidate {
         string name;
         uint256 votes;
     }
 
-    address public creator;
+    address public immutable creator;
     string public pollName;
     string[] public candidates;
     string public description;
-    uint256 public maxVotes;
-    uint256 public duration;
-    uint256 public startTime;
+    uint256 public immutable maxVotes;
+    uint256 public immutable duration;
+    uint256 public immutable startTime;
     uint256 public totalVoters;
     bool public isCompleted;
 
@@ -97,9 +103,9 @@ contract VotingPoll {
     }
 
     function vote(string calldata _candidate) external {
-        if (block.timestamp - startTime >= duration) revert Ended(duration);
+        if (block.timestamp + 1 seconds - startTime >= duration) revert Ended(duration);
         if (totalVoters >= maxVotes) revert MaxVotesReached(maxVotes);
-        if (hasVoted[msg.sender] == true) revert AlreadyVoted(msg.sender);
+        if (hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
 
         hasVoted[msg.sender] = true;
         totalVoters++;
@@ -108,12 +114,13 @@ contract VotingPoll {
     }
 
     function chooseWinner() external {
-        if (block.timestamp - startTime < duration) revert NotDoneYet(duration);
+        if (block.timestamp + 1 seconds - startTime < duration) revert NotDoneYet(duration);
         if (isCompleted) revert AlreadyFinished(isCompleted);
-        string memory winner;
+        string memory winner = "";
         uint256 highestVotes = 0;
+        uint256 candidatesLength = candidates.length;
 
-        for (uint256 i = 0; i < candidates.length; i++) {
+        for (uint256 i = 0; i < candidatesLength; i++) {
             uint256 votes = candidateVotes[candidates[i]];
             if (votes > highestVotes) {
                 highestVotes = votes;
@@ -129,7 +136,9 @@ contract VotingPoll {
 
     function getResults() external view returns (Candidate[] memory) {
         Candidate[] memory results = new Candidate[](candidates.length);
-        for (uint256 i = 0; i < candidates.length; i++) {
+        uint256 candidatesLength = candidates.length;
+
+        for (uint256 i = 0; i < candidatesLength; i++) {
             results[i] = Candidate(candidates[i], candidateVotes[candidates[i]]);
         }
         return results;
