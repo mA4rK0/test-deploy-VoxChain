@@ -104,7 +104,7 @@ contract VotingPoll {
     }
 
     function vote(string calldata _candidate) external {
-        if (block.timestamp + 1 seconds - startTime >= duration) revert Ended(duration);
+        if (block.timestamp >= startTime + duration) revert Ended(duration);
         if (totalVoters >= maxVotes) revert MaxVotesReached(maxVotes);
         if (hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
 
@@ -115,7 +115,7 @@ contract VotingPoll {
     }
 
     function chooseWinner() external {
-        if (block.timestamp + 1 seconds - startTime < duration) revert NotDoneYet(duration);
+        if (block.timestamp < startTime + duration) revert NotDoneYet(duration);
         if (isCompleted) revert AlreadyFinished(isCompleted);
         string memory winner = "";
         uint256 highestVotes = 0;
