@@ -12,7 +12,7 @@ contract VotingSystemFactory {
         address creator;
     }
 
-    PollInfo[] public allPolls;
+    PollInfo[] private allPolls;
     mapping(address => bool) public isPoll;
 
     function createPoll(
@@ -31,6 +31,10 @@ contract VotingSystemFactory {
 
     function getTotalPolls() external view returns (uint256) {
         return allPolls.length;
+    }
+
+    function getAllPolls() external view returns (PollInfo[] memory) {
+        return allPolls;
     }
 
     function getPoll(uint256 index) public view returns (PollInfo memory) {
