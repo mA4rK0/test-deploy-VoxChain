@@ -29,6 +29,12 @@ contract VotingSystemFactory {
         emit PollCreated(address(newPoll), _pollName, msg.sender);
     }
 
+    function getPollExtendedInfo(address pollAddress) external view returns (bool, uint256, uint256) {
+        VotingPoll poll = VotingPoll(pollAddress);
+        (bool completed, uint256 totalVoters, uint256 startTime) = poll.getPollDetails();
+        return (completed, totalVoters, startTime);
+    }
+
     function getTotalPolls() external view returns (uint256) {
         return allPolls.length;
     }
@@ -37,7 +43,7 @@ contract VotingSystemFactory {
         return allPolls;
     }
 
-    function getPoll(uint256 index) public view returns (PollInfo memory) {
+    function getPoll(uint256 index) external view returns (PollInfo memory) {
         if (index >= allPolls.length) revert IndexOutOfBounds(index);
         return allPolls[index];
     }
@@ -147,5 +153,9 @@ contract VotingPoll {
             results[i] = Candidate(candidates[i], candidateVotes[candidates[i]]);
         }
         return results;
+    }
+
+    function getPollDetails() external view returns (bool, uint256, uint256) {
+        return (isCompleted, totalVoters, startTime);
     }
 }
