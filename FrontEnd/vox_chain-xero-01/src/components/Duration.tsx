@@ -4,7 +4,7 @@ import React, { ChangeEventHandler, useEffect, useState } from "react";
 type DurationProps = {
   times: ITimes;
   handleChangeDuration: ChangeEventHandler<HTMLInputElement>;
-  isDone: boolean;
+  isDone?: boolean;
 };
 const Duration = (props: DurationProps) => {
   const { isDone, handleChangeDuration, times } = props;
@@ -19,7 +19,6 @@ const Duration = (props: DurationProps) => {
             max={48}
             type="number"
             id="hours"
-            disabled={isDone}
             placeholder="00"
             value={times.hours != undefined ? times.hours : undefined}
             onChange={handleChangeDuration}
@@ -31,7 +30,6 @@ const Duration = (props: DurationProps) => {
           <input
             min={0}
             max={59}
-            disabled={isDone}
             type="number"
             id="minutes"
             placeholder="00"
@@ -46,7 +44,6 @@ const Duration = (props: DurationProps) => {
             min={0}
             max={59}
             type="number"
-            disabled={isDone}
             id="seconds"
             placeholder="00"
             value={times.seconds !== undefined ? times.seconds : ""}

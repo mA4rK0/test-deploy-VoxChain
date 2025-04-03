@@ -2,7 +2,6 @@ import { Circle, X } from "lucide-react";
 import React, {
   ChangeEventHandler,
   Dispatch,
-  FormEventHandler,
   useEffect,
   useState,
 } from "react";
@@ -10,18 +9,14 @@ import React, {
 import { toast } from "sonner";
 import Countdown from "react-countdown";
 import Duration from "./Duration";
-import { ITimes } from "@/lib/types";
-
-interface DataCreatePolling {
-  namePolling: string;
-  candidate1: string;
-  candidate2: string;
-  candidate3?: string;
-  description: string;
-  maxVotes: number;
-  duration: number;
-}
-
+import { DataCreatePolling, ITimes } from "@/lib/types";
+import usePollingStore from "@/store/store";
+import { ContractOptions, getContract, prepareContractCall } from "thirdweb";
+import { client, CONTRACT_ADDRESS } from "@/lib/client";
+import { ABI } from "@/lib/ABI";
+import { sepolia } from "thirdweb/chains";
+import { Abi } from "thirdweb/utils";
+import { useSendTransaction } from "thirdweb/react";
 type CreateProps = {
   isOpen: boolean;
   setIsOpen: Dispatch<React.SetStateAction<boolean>>;
@@ -29,6 +24,7 @@ type CreateProps = {
 
 const CreatePolling = (props: CreateProps) => {
   const { isOpen, setIsOpen } = props;
+  const headerCreatePolling = ["Polling Name", "Add Candidates", "Description"];
   const [index, setIndex] = useState<number>(0);
   const [countdownTarget, setCountdownTarget] = useState<number | null>(null);
   const [dataPolling, setDataPolling] = useState<DataCreatePolling>({
@@ -39,14 +35,32 @@ const CreatePolling = (props: CreateProps) => {
     duration: 0,
     maxVotes: 0,
     namePolling: "",
+    isCompleted: false,
   });
-  const [isDone, setIsDone] = useState<boolean>(false);
-  const [error, setError] = useState<string>();
 
   const [times, setTimes] = useState<ITimes>({
     hours: 0,
     minutes: 0,
     seconds: 0,
+  });
+  const [loadingToastId, setLoadingToastId] = useState<string | null | number>(
+    null
+  );
+
+  const [currentTxId, setCurrentTxId] = useState<number | null>(null); // Buat ID unik tiap transaksi
+  // smart contract
+  const {
+    mutate: sendTransaction,
+    isPending: pendingTransaction,
+    error: errorTransaction,
+    data: transactionResult,
+    isSuccess,
+  } = useSendTransaction();
+  const contract = getContract({
+    address: CONTRACT_ADDRESS,
+    chain: sepolia,
+    client: client,
+    abi: ABI,
   });
 
   const handleStart = () => {
@@ -97,7 +111,6 @@ const CreatePolling = (props: CreateProps) => {
       setIndex(2);
       return;
     } else if (index == 2) {
-      setIsDone(true);
       console.log(countdownTarget);
       return;
     }
@@ -122,18 +135,30 @@ const CreatePolling = (props: CreateProps) => {
 
     return { error, isError: error.length > 0 ? true : false };
   }
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const isValid = validation(dataPolling);
     if (isValid.isError) {
       toast.error(isValid.error[0], { position: "top-center" });
       return;
     }
-    setIsDone(true);
-    console.log("berhasil di anu", dataPolling);
-    toast.success(
-      `horey selamat polling dengan name ${dataPolling.namePolling} akan segera hadir`,
-      { position: "top-center" }
-    );
+
+    const candidates = [
+      dataPolling.candidate1,
+      dataPolling.candidate2,
+      dataPolling.candidate3,
+    ];
+    const transaction = prepareContractCall({
+      contract,
+      params: [
+        dataPolling.namePolling,
+        candidates,
+        dataPolling.description,
+        dataPolling.maxVotes,
+        dataPolling.duration,
+      ],
+      method: "createPoll",
+    });
+    sendTransaction(transaction);
   };
 
   const handleClose = () => {
@@ -146,20 +171,43 @@ const CreatePolling = (props: CreateProps) => {
     setDataPolling({ ...dataPolling, [target.id]: target.value });
   };
 
+  // notification transaction
+  useEffect(() => {
+    if (pendingTransaction) {
+      const txId = Date.now(); // ID unik tiap transaksi
+      setCurrentTxId(txId);
+      const id = toast.loading("Loading transaction...");
+      return () => {
+        toast.dismiss(id);
+      };
+    }
+  }, [pendingTransaction]);
+
+  useEffect(() => {
+    if (errorTransaction && currentTxId) {
+      toast.error(`Transaction failed: ${errorTransaction.message}`);
+    }
+  }, [errorTransaction, currentTxId]);
+
+  useEffect(() => {
+    if (isSuccess && transactionResult?.transactionHash) {
+      toast.success(
+        `Transaction Successful: ${transactionResult.transactionHash}`
+      );
+      setIsOpen(false);
+      setIndex(0);
+      // **Pastikan hanya dismiss jika ada toast yang sedang aktif**
+      if (loadingToastId !== null) {
+        toast.dismiss(loadingToastId);
+      }
+    }
+  }, [isSuccess, transactionResult]);
+
   return (
     <>
       {isOpen && (
         <div className="inset-0 absolute w-full h-screen flex flex-col justify-center items-center px-7 lg:px-0">
           <div className="bg-black opacity-55 absolute inset-0 "></div>
-          <div className="bg-green-300  absolute px-20 py-10 text-center top-0">
-            {countdownTarget && isDone ? (
-              <>
-                <Countdown date={countdownTarget} />
-              </>
-            ) : null}
-            {error ? <p className="text-black">{error}</p> : null}
-          </div>
-
           <div className="max-w-[28.875rem] sm:max-h-[17.063rem] max-h-[15rem]   w-full h-full bg-purple-light z-10 relative">
             {/* close button */}
             <button
@@ -196,16 +244,11 @@ const CreatePolling = (props: CreateProps) => {
                   index == 2 ? "text-md" : "text-2xl"
                 } font-bold mt-3`}
               >
-                {index == 0
-                  ? "Polling Name"
-                  : index == 1
-                  ? "Add Candidates"
-                  : index == 2
-                  ? "Description"
-                  : ""}
+                {headerCreatePolling[index]}
               </h1>
               <div>
                 {index == 0 ? (
+                  // name polling
                   <input
                     type="text"
                     placeholder="type polling name"
@@ -216,6 +259,7 @@ const CreatePolling = (props: CreateProps) => {
                     className="mt-7 text-white  font-light text-center outline-0 "
                   />
                 ) : index == 1 ? (
+                  // candidates
                   <div className="flex flex-col gap-3 mt-1 ">
                     <label htmlFor="candidate1" className="flex gap-2  pl-12">
                       <span>1.</span>
@@ -252,8 +296,9 @@ const CreatePolling = (props: CreateProps) => {
                     </label>
                   </div>
                 ) : (
+                  // description polling
                   <textarea
-                    placeholder="type polling name"
+                    placeholder="Description polling"
                     onChange={(e) =>
                       setDataPolling({
                         ...dataPolling,
@@ -281,7 +326,6 @@ const CreatePolling = (props: CreateProps) => {
                       <Duration
                         times={times}
                         handleChangeDuration={handleChangeDuration}
-                        isDone={isDone}
                       />
                     </div>
                   </div>

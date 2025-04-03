@@ -2,8 +2,17 @@ import { Search } from "lucide-react";
 import React, { ChangeEventHandler, useEffect, useState } from "react";
 import CreatePolling from "./CreatePolling";
 
+import usePollingStore from "@/store/store";
+import { getContract, prepareContractCall } from "thirdweb";
+import { sepolia } from "thirdweb/chains";
+import { useReadContract, useSendTransaction } from "thirdweb/react";
+import { client, CONTRACT_ADDRESS } from "@/lib/client";
+import { ABI } from "@/lib/ABI";
+import { Abi, AbiFunction } from "thirdweb/utils";
 type votingProps = {
-  name: string;
+  creator: string;
+  pollAddress: string;
+  pollName: string;
 };
 
 const mockData = [{ name: "asoy" }, { name: "uhuy" }];
@@ -11,7 +20,18 @@ const mockData = [{ name: "asoy" }, { name: "uhuy" }];
 const VotingComponents = () => {
   const [searchVoting, setSearchVoting] = useState<string>("");
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [votingData, setVotingData] = useState<votingProps[]>(mockData);
+  const [votingData, setVotingData] = useState<votingProps[]>([]);
+  const contract = getContract({
+    address: CONTRACT_ADDRESS,
+    chain: sepolia,
+    client,
+    abi: ABI,
+  });
+  const { data, isError, isLoading } = useReadContract({
+    contract,
+    method: "getAllPolls",
+    params: [0],
+  });
 
   const handleSearch: ChangeEventHandler<HTMLInputElement> = (e) => {
     const target = e.target as HTMLInputElement;
@@ -31,6 +51,13 @@ const VotingComponents = () => {
     // fetch
     // set to votingData
   }, [votingData]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (data) {
+      setVotingData(data);
+    }
+  }, [data]);
 
   return (
     <div className="w-full px-10  mt-20">
@@ -65,7 +92,18 @@ const VotingComponents = () => {
         </button>
       </div>
       {/* voting table */}
-      <div></div>
+
+      <div className="text-black">
+        {isLoading
+          ? "laoding..."
+          : votingData.map((value, i) => (
+              <div key={i}>
+                <div>{value.pollName}</div>
+                <div>creator: {value.creator}</div>
+                <div>pool Address: {value.pollAddress}</div>
+              </div>
+            ))}
+      </div>
     </div>
   );
 };

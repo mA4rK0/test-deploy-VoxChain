@@ -5,4 +5,15 @@ interface ITimes {
   seconds: number | undefined;
 }
 
-export type { ITimes };
+interface DataCreatePolling {
+  namePolling: string;
+  candidate1: string;
+  candidate2: string;
+  candidate3?: string;
+  description: string;
+  maxVotes: number;
+  duration: number;
+  isCompleted?: boolean;
+}
+
+export type { ITimes, DataCreatePolling };
