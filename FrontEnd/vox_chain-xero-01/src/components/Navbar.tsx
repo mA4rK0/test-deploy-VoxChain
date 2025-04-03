@@ -1,5 +1,4 @@
 "use client";
-import type { NextPage } from "next";
 import { ConnectButton } from "thirdweb/react";
 import { client, wallet } from "@/lib/client";
 import { generatePayload, isLoggedIn, login, logout } from "@/actions/login"; // we'll create this file in the next section
@@ -13,9 +12,7 @@ const Navbar = () => {
   return (
     <>
       <div className="w-full py-4 px-6 xl:px-11 absolute bg-purple-light flex justify-between items-center">
-        <div className="font-inter text-white font-bold lg:text-[24px] text-[1rem] ">
-          VoxChain
-        </div>
+        <div className="font-inter text-white font-bold lg:text-[24px] text-[1rem] ">VoxChain</div>
         <div>
           {hydration && (
             <ConnectButton
