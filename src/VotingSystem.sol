@@ -8,8 +8,8 @@ contract VotingSystemFactory {
 
     struct PollInfo {
         address pollAddress;
-        string pollName;
         address creator;
+        string pollName;
     }
 
     PollInfo[] private allPolls;
@@ -23,7 +23,7 @@ contract VotingSystemFactory {
         uint256 _duration
     ) external {
         VotingPoll newPoll = new VotingPoll(_pollName, _candidates, _description, _maxVotes, _duration);
-        allPolls.push(PollInfo(address(newPoll), _pollName, msg.sender));
+        allPolls.push(PollInfo(address(newPoll), msg.sender, _pollName));
         isPoll[address(newPoll)] = true;
 
         emit PollCreated(address(newPoll), _pollName, msg.sender);
@@ -75,7 +75,6 @@ contract VotingPoll {
         uint256 votes;
     }
 
-    address public immutable creator;
     string public pollName;
     string[] public candidates;
     string public description;
@@ -83,6 +82,7 @@ contract VotingPoll {
     uint256 public immutable duration;
     uint256 public immutable startTime;
     uint256 public totalVoters;
+    address public immutable creator;
     bool public isCompleted;
 
     mapping(string => uint256) public candidateVotes;
