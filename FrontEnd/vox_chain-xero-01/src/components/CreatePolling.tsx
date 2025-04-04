@@ -7,15 +7,11 @@ import React, {
 } from "react";
 
 import { toast } from "sonner";
-import Countdown from "react-countdown";
 import Duration from "./Duration";
 import { DataCreatePolling, ITimes } from "@/lib/types";
-import usePollingStore from "@/store/store";
-import { ContractOptions, getContract, prepareContractCall } from "thirdweb";
+import { getContract, prepareContractCall } from "thirdweb";
 import { client, CONTRACT_ADDRESS } from "@/lib/client";
-import { ABI } from "@/lib/ABI";
 import { sepolia } from "thirdweb/chains";
-import { Abi } from "thirdweb/utils";
 import { useSendTransaction } from "thirdweb/react";
 type CreateProps = {
   isOpen: boolean;
@@ -37,22 +33,18 @@ const CreatePolling = (props: CreateProps) => {
     namePolling: "",
     isCompleted: false,
   });
-
   const [times, setTimes] = useState<ITimes>({
     hours: 0,
     minutes: 0,
     seconds: 0,
   });
-  const [loadingToastId, setLoadingToastId] = useState<string | null | number>(
-    null
-  );
 
-  const [currentTxId, setCurrentTxId] = useState<number | null>(null); // Buat ID unik tiap transaksi
   // smart contract
   const {
     mutate: sendTransaction,
     isPending: pendingTransaction,
     error: errorTransaction,
+    isError,
     data: transactionResult,
     isSuccess,
   } = useSendTransaction();
@@ -60,7 +52,6 @@ const CreatePolling = (props: CreateProps) => {
     address: CONTRACT_ADDRESS,
     chain: sepolia,
     client: client,
-    abi: ABI,
   });
 
   const handleStart = () => {
@@ -115,7 +106,6 @@ const CreatePolling = (props: CreateProps) => {
       return;
     }
   };
-
   function validation(data: DataCreatePolling) {
     const namePolling = data.namePolling;
     let error = [];
@@ -142,7 +132,7 @@ const CreatePolling = (props: CreateProps) => {
       return;
     }
 
-    const candidates = [
+    const candidates: string[] = [
       dataPolling.candidate1,
       dataPolling.candidate2,
       dataPolling.candidate3,
@@ -153,56 +143,64 @@ const CreatePolling = (props: CreateProps) => {
         dataPolling.namePolling,
         candidates,
         dataPolling.description,
-        dataPolling.maxVotes,
-        dataPolling.duration,
+        BigInt(dataPolling.maxVotes),
+        BigInt(dataPolling.duration),
       ],
-      method: "createPoll",
+      method:
+        "function createPoll(string calldata _pollname, string[] calldata _candidates, string calldata _description,  uint256 _maxVotes,uint256 _duration)",
     });
     sendTransaction(transaction);
   };
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setIndex(0);
-  };
-
   const handleDataPolling: ChangeEventHandler<HTMLInputElement> = (e) => {
     const target = e.target as HTMLInputElement;
     setDataPolling({ ...dataPolling, [target.id]: target.value });
   };
 
+  // Add state initialization if missing
+  const [txSuccess, setTxSuccess] = useState(false);
+
   // notification transaction
   useEffect(() => {
+    let toastId;
+
     if (pendingTransaction) {
-      const txId = Date.now(); // ID unik tiap transaksi
-      setCurrentTxId(txId);
-      const id = toast.loading("Loading transaction...");
+      toastId = toast.loading("Processing transaction...");
+
+      // Store toastId for later dismissal
       return () => {
-        toast.dismiss(id);
+        toast.dismiss(toastId);
       };
     }
   }, [pendingTransaction]);
 
   useEffect(() => {
-    if (errorTransaction && currentTxId) {
-      toast.error(`Transaction failed: ${errorTransaction.message}`);
+    if (isError && errorTransaction) {
+      const errorMessage = errorTransaction.message || "Transaction failed";
+      toast.error(`Transaction failed: ${errorMessage}`);
     }
-  }, [errorTransaction, currentTxId]);
+  }, [isError, errorTransaction]);
 
   useEffect(() => {
-    if (isSuccess && transactionResult?.transactionHash) {
-      toast.success(
-        `Transaction Successful: ${transactionResult.transactionHash}`
-      );
+    if (isSuccess) {
+      setTxSuccess(true);
       setIsOpen(false);
       setIndex(0);
-      // **Pastikan hanya dismiss jika ada toast yang sedang aktif**
-      if (loadingToastId !== null) {
-        toast.dismiss(loadingToastId);
-      }
     }
-  }, [isSuccess, transactionResult]);
+  }, [isSuccess]);
 
+  useEffect(() => {
+    if (txSuccess) {
+      const hash = transactionResult?.transactionHash || "";
+      toast.success(`Transaction Successful: ${hash}`);
+
+      const timer = setTimeout(() => setTxSuccess(false), 2000);
+
+      // Cleanup function
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [txSuccess, transactionResult]);
   return (
     <>
       {isOpen && (
@@ -211,7 +209,10 @@ const CreatePolling = (props: CreateProps) => {
           <div className="max-w-[28.875rem] sm:max-h-[17.063rem] max-h-[15rem]   w-full h-full bg-purple-light z-10 relative">
             {/* close button */}
             <button
-              onClick={handleClose}
+              onClick={() => {
+                setIsOpen(false);
+                setIndex(0);
+              }}
               className="absolute top-4 right-6 text-sm  bg-white flex gap-1  rounded-md px-2 cursor-pointer text-black hover:text-white hover:bg-[#F44C4C] transition-all"
             >
               Close <X size={20} />
