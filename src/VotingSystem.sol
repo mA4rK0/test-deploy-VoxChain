@@ -41,9 +41,9 @@ contract VotingSystemFactory {
         return pollCount;
     }
 
-    function getPoll(uint256 index) external view returns (PollInfo memory) {
-        if (index >= pollCount) revert IndexOutOfBounds(index);
-        return allPolls[index];
+    function getPoll(uint256 count) external view returns (PollInfo memory) {
+        if (count > pollCount) revert IndexOutOfBounds(count);
+        return allPolls[count];
     }
 }
 
