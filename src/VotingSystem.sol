@@ -12,7 +12,8 @@ contract VotingSystemFactory {
         string pollName;
     }
 
-    PollInfo[] private allPolls;
+    mapping(uint256 => PollInfo) public allPolls;
+    uint256 private pollCount = 0;
     mapping(address => bool) public isPoll;
 
     function createPoll(
@@ -23,7 +24,8 @@ contract VotingSystemFactory {
         uint256 _duration
     ) external {
         VotingPoll newPoll = new VotingPoll(_pollName, _candidates, _description, _maxVotes, _duration);
-        allPolls.push(PollInfo(address(newPoll), msg.sender, _pollName));
+        pollCount++;
+        allPolls[pollCount] = PollInfo(address(newPoll), msg.sender, _pollName);
         isPoll[address(newPoll)] = true;
 
         emit PollCreated(address(newPoll), _pollName, msg.sender);
@@ -36,15 +38,11 @@ contract VotingSystemFactory {
     }
 
     function getTotalPolls() external view returns (uint256) {
-        return allPolls.length;
-    }
-
-    function getAllPolls() external view returns (PollInfo[] memory) {
-        return allPolls;
+        return pollCount;
     }
 
     function getPoll(uint256 index) external view returns (PollInfo memory) {
-        if (index >= allPolls.length) revert IndexOutOfBounds(index);
+        if (index >= pollCount) revert IndexOutOfBounds(index);
         return allPolls[index];
     }
 }
@@ -59,7 +57,7 @@ contract VotingPoll {
     error NoValidWinner();
 
     event PollCreated(
-        address _creator,
+        address indexed _creator,
         string _pollName,
         string[] _candidates,
         string _description,
@@ -119,7 +117,9 @@ contract VotingPoll {
         if (hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
 
         hasVoted[msg.sender] = true;
-        totalVoters++;
+        unchecked {
+            totalVoters++;
+        }
         candidateVotes[_candidate]++;
         emit Voted(msg.sender, _candidate);
     }
@@ -131,11 +131,13 @@ contract VotingPoll {
         uint256 highestVotes = 0;
         uint256 candidatesLength = candidates.length;
 
-        for (uint256 i = 0; i < candidatesLength; i++) {
-            uint256 votes = candidateVotes[candidates[i]];
-            if (votes > highestVotes) {
-                highestVotes = votes;
-                winner = candidates[i];
+        unchecked {
+            for (uint256 i = 0; i < candidatesLength; i++) {
+                uint256 votes = candidateVotes[candidates[i]];
+                if (votes > highestVotes) {
+                    highestVotes = votes;
+                    winner = candidates[i];
+                }
             }
         }
 
