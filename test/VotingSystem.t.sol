@@ -29,7 +29,7 @@ contract VotingSystemFactoryTest is Test {
         uint256 totalPolls = factory.getTotalPolls();
         assertEq(totalPolls, 1, "Total polls should be 1");
 
-        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(0);
+        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(1);
         assertEq(pollInfo.pollName, pollName, "Poll name mismatch");
         assertEq(pollInfo.creator, user1, "Creator address mismatch");
     }
@@ -46,7 +46,7 @@ contract VotingSystemFactoryTest is Test {
         vm.prank(user1);
         factory.createPoll(pollName, candidates, description, maxVotes, duration);
 
-        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(0);
+        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(1);
         VotingPoll poll = VotingPoll(pollInfo.pollAddress);
 
         vm.warp(block.timestamp + 1 seconds);
@@ -98,7 +98,7 @@ contract VotingSystemFactoryTest is Test {
         vm.prank(user1);
         factory.createPoll(pollName, candidates, description, maxVotes, duration);
 
-        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(0);
+        VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(1);
         VotingPoll poll = VotingPoll(pollInfo.pollAddress);
 
         vm.warp(block.timestamp + 1 seconds);
