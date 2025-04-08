@@ -31,10 +31,26 @@ contract VotingSystemFactory {
         emit PollCreated(address(newPoll), _pollName, msg.sender);
     }
 
-    function getPollExtendedInfo(address pollAddress) external view returns (bool, uint256, uint256) {
+    function getPollExtendedInfo(address pollAddress)
+        external
+        view
+        returns (string memory, string[] memory, string memory, uint256, uint256, uint256, uint256, address, bool)
+    {
         VotingPoll poll = VotingPoll(pollAddress);
-        (bool completed, uint256 totalVoters, uint256 startTime) = poll.getPollDetails();
-        return (completed, totalVoters, startTime);
+
+        (
+            string memory name,
+            string[] memory candidates,
+            string memory description,
+            uint256 maxVotes,
+            uint256 duration,
+            uint256 startTime,
+            uint256 endTime,
+            address creator,
+            bool isActive
+        ) = poll.getPollDetails();
+
+        return (name, candidates, description, maxVotes, duration, startTime, endTime, creator, isActive);
     }
 
     function getTotalPolls() external view returns (uint256) {
@@ -42,7 +58,7 @@ contract VotingSystemFactory {
     }
 
     function getPoll(uint256 count) external view returns (PollInfo memory) {
-        if (count > pollCount) revert IndexOutOfBounds(count);
+        if (count == 0 || count > pollCount) revert IndexOutOfBounds(count);
         return allPolls[count];
     }
 }
@@ -54,6 +70,7 @@ contract VotingPoll {
     error MaxVotesReached(uint256 _maxVotes);
     error NotDoneYet(uint256 _time);
     error AlreadyFinished(bool _completed);
+    error NoValidCandidate(string _candidate);
     error NoValidWinner();
 
     event PollCreated(
@@ -73,16 +90,17 @@ contract VotingPoll {
         uint256 votes;
     }
 
-    string public pollName;
-    string[] public candidates;
-    string public description;
-    uint256 public immutable maxVotes;
-    uint256 public immutable duration;
-    uint256 public immutable startTime;
-    uint256 public totalVoters;
-    address public immutable creator;
-    bool public isCompleted;
+    string private pollName;
+    string[] private candidates;
+    string private description;
+    uint256 private immutable maxVotes;
+    uint256 private immutable duration;
+    uint256 private immutable startTime;
+    uint256 private totalVoters;
+    address private immutable creator;
+    bool private isCompleted;
 
+    mapping(string => bool) public isCandidate;
     mapping(string => uint256) public candidateVotes;
     mapping(address => bool) public hasVoted;
 
@@ -106,6 +124,7 @@ contract VotingPoll {
         isCompleted = false;
 
         for (uint256 i = 0; i < _candidates.length; i++) {
+            isCandidate[_candidates[i]] = true;
             candidateVotes[_candidates[i]] = 0;
         }
         emit PollCreated(msg.sender, _pollName, _candidates, _description, _maxVotes, _duration, startTime);
@@ -115,6 +134,7 @@ contract VotingPoll {
         if (block.timestamp >= startTime + duration) revert Ended(duration);
         if (totalVoters >= maxVotes) revert MaxVotesReached(maxVotes);
         if (hasVoted[msg.sender]) revert AlreadyVoted(msg.sender);
+        if (!isCandidate[_candidate]) revert NoValidCandidate(_candidate);
 
         hasVoted[msg.sender] = true;
         unchecked {
@@ -157,7 +177,11 @@ contract VotingPoll {
         return results;
     }
 
-    function getPollDetails() external view returns (bool, uint256, uint256) {
-        return (isCompleted, totalVoters, startTime);
+    function getPollDetails()
+        external
+        view
+        returns (string memory, string[] memory, string memory, uint256, uint256, uint256, uint256, address, bool)
+    {
+        return (pollName, candidates, description, maxVotes, duration, startTime, totalVoters, creator, isCompleted);
     }
 }
