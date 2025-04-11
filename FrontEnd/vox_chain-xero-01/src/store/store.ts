@@ -1,9 +1,19 @@
 import { DataCreatePolling } from "@/lib/types";
 import { create } from "zustand";
 
-const usePollingStore = create((set) => ({
-  polling: [] as DataCreatePolling[],
-  newPolling: (dataPolling: DataCreatePolling) =>
+// Define the shape of the store state and actions
+interface PollingStore {
+  polling: DataCreatePolling[];
+  newPolling: (dataPolling: DataCreatePolling) => void;
+  removeAllBears: () => void;
+  updateBears: (newBears: number) => void;
+  bears?: number; // optional if you want to track bears
+}
+
+const usePollingStore = create<PollingStore>((set) => ({
+  polling: [],
+  bears: 0,
+  newPolling: (dataPolling) =>
     set((state) => ({
       polling: [
         ...state.polling,

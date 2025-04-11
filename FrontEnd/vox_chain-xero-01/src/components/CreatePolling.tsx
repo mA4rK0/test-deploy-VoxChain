@@ -9,10 +9,13 @@ import React, {
 import { toast } from "sonner";
 import Duration from "./Duration";
 import { DataCreatePolling, ITimes } from "@/lib/types";
-import { getContract, prepareContractCall } from "thirdweb";
-import { client, CONTRACT_ADDRESS } from "@/lib/client";
-import { sepolia } from "thirdweb/chains";
-import { useSendTransaction } from "thirdweb/react";
+import { prepareContractCall } from "thirdweb";
+import { contract } from "@/lib/client";
+import {
+  useSendTransaction,
+  useSendAndConfirmTransaction,
+} from "thirdweb/react";
+import BackgroundOpacity from "./BackgroundOpacity";
 type CreateProps = {
   isOpen: boolean;
   setIsOpen: Dispatch<React.SetStateAction<boolean>>;
@@ -47,12 +50,7 @@ const CreatePolling = (props: CreateProps) => {
     isError,
     data: transactionResult,
     isSuccess,
-  } = useSendTransaction();
-  const contract = getContract({
-    address: CONTRACT_ADDRESS,
-    chain: sepolia,
-    client: client,
-  });
+  } = useSendAndConfirmTransaction();
 
   const handleStart = () => {
     const totalSeconds =
@@ -66,7 +64,7 @@ const CreatePolling = (props: CreateProps) => {
     }
     const targetTime = Date.now() + totalSeconds * 1000; // converts to milisecond
 
-    setDataPolling({ ...dataPolling, duration: targetTime });
+    setDataPolling({ ...dataPolling, duration: totalSeconds });
     setCountdownTarget(targetTime);
   };
 
@@ -135,7 +133,7 @@ const CreatePolling = (props: CreateProps) => {
     const candidates: string[] = [
       dataPolling.candidate1,
       dataPolling.candidate2,
-      dataPolling.candidate3,
+      dataPolling.candidate3 || "",
     ];
     const transaction = prepareContractCall({
       contract,
@@ -147,7 +145,7 @@ const CreatePolling = (props: CreateProps) => {
         BigInt(dataPolling.duration),
       ],
       method:
-        "function createPoll(string calldata _pollname, string[] calldata _candidates, string calldata _description,  uint256 _maxVotes,uint256 _duration)",
+        "function createPoll(string _pollName, string[] _candidates, string _description, uint256 _maxVotes, uint256 _duration)",
     });
     sendTransaction(transaction);
   };
@@ -161,7 +159,7 @@ const CreatePolling = (props: CreateProps) => {
 
   // notification transaction
   useEffect(() => {
-    let toastId;
+    let toastId: string | number;
 
     if (pendingTransaction) {
       toastId = toast.loading("Processing transaction...");
@@ -204,8 +202,8 @@ const CreatePolling = (props: CreateProps) => {
   return (
     <>
       {isOpen && (
-        <div className="inset-0 absolute w-full h-screen flex flex-col justify-center items-center px-7 lg:px-0">
-          <div className="bg-black opacity-55 absolute inset-0 "></div>
+        <div className="inset-0 fixed w-full h-screen flex flex-col justify-center items-center px-7 lg:px-0 z-10">
+          <BackgroundOpacity />
           <div className="max-w-[28.875rem] sm:max-h-[17.063rem] max-h-[15rem]   w-full h-full bg-purple-light z-10 relative">
             {/* close button */}
             <button
@@ -345,6 +343,7 @@ const CreatePolling = (props: CreateProps) => {
               <button
                 type={"submit"}
                 onClick={handleSubmit}
+                disabled={pendingTransaction}
                 className="bg-white mx-auto block px-10 mt-5 rounded-md hover:bg-purple-dark hover:text-white transition-all cursor-pointer"
               >
                 Done
