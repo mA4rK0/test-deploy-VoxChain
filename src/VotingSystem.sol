@@ -13,17 +13,17 @@ contract VotingSystemFactory {
     }
 
     mapping(uint256 => PollInfo) public allPolls;
-    uint256 private pollCount = 0;
     mapping(address => bool) public isPoll;
+    uint256 private pollCount = 0;
 
     function createPoll(
         string calldata _pollName,
-        string[] calldata _candidates,
         string calldata _description,
+        string[] calldata _candidates,
         uint256 _maxVotes,
         uint256 _duration
     ) external {
-        VotingPoll newPoll = new VotingPoll(_pollName, _candidates, _description, _maxVotes, _duration);
+        VotingPoll newPoll = new VotingPoll(_pollName, _description, _candidates, _maxVotes, _duration, msg.sender);
         pollCount++;
         allPolls[pollCount] = PollInfo(address(newPoll), msg.sender, _pollName);
         isPoll[address(newPoll)] = true;
@@ -34,23 +34,23 @@ contract VotingSystemFactory {
     function getPollExtendedInfo(address pollAddress)
         external
         view
-        returns (string memory, string[] memory, string memory, uint256, uint256, uint256, uint256, address, bool)
+        returns (string memory, string memory, string[] memory, uint256, uint256, uint256, uint256, address, bool)
     {
         VotingPoll poll = VotingPoll(pollAddress);
 
         (
             string memory name,
-            string[] memory candidates,
             string memory description,
+            string[] memory candidates,
             uint256 maxVotes,
             uint256 duration,
             uint256 startTime,
-            uint256 endTime,
+            uint256 totalVoters,
             address creator,
             bool isActive
         ) = poll.getPollDetails();
 
-        return (name, candidates, description, maxVotes, duration, startTime, endTime, creator, isActive);
+        return (name, description, candidates, maxVotes, duration, startTime, totalVoters, creator, isActive);
     }
 
     function getTotalPolls() external view returns (uint256) {
@@ -84,6 +84,7 @@ contract VotingPoll {
     );
     event Voted(address _voter, string _candidate);
     event WinnerDeclared(string indexed _winner, uint256 _votes);
+    event DrawOccurred(string[] drawCandidates, uint256 topVotes);
 
     struct Candidate {
         string name;
@@ -91,8 +92,8 @@ contract VotingPoll {
     }
 
     string private pollName;
-    string[] private candidates;
     string private description;
+    string[] private candidates;
     uint256 private immutable maxVotes;
     uint256 private immutable duration;
     uint256 private immutable startTime;
@@ -106,14 +107,15 @@ contract VotingPoll {
 
     constructor(
         string memory _pollName,
-        string[] memory _candidates,
         string memory _description,
+        string[] memory _candidates,
         uint256 _maxVotes,
-        uint256 _duration
+        uint256 _duration,
+        address _address
     ) {
         if (_candidates.length < 2 || _candidates.length > 3) revert InsufficientCandidates(_candidates);
 
-        creator = msg.sender;
+        creator = _address;
         pollName = _pollName;
         candidates = _candidates;
         description = _description;
@@ -147,24 +149,42 @@ contract VotingPoll {
     function chooseWinner() external {
         if (block.timestamp < startTime + duration) revert NotDoneYet(duration);
         if (isCompleted) revert AlreadyFinished(isCompleted);
-        string memory winner = "";
+
         uint256 highestVotes = 0;
-        uint256 candidatesLength = candidates.length;
+        uint256 drawCount = 0;
+        string memory winner = "";
+        string[] memory tempDrawCandidates = new string[](candidates.length);
 
         unchecked {
-            for (uint256 i = 0; i < candidatesLength; i++) {
+            for (uint256 i = 0; i < candidates.length; i++) {
                 uint256 votes = candidateVotes[candidates[i]];
                 if (votes > highestVotes) {
                     highestVotes = votes;
                     winner = candidates[i];
+                    drawCount = 1;
+                    tempDrawCandidates[0] = candidates[i];
+                } else if (votes == highestVotes && votes > 0) {
+                    tempDrawCandidates[drawCount] = candidates[i];
+                    drawCount++;
                 }
             }
         }
 
-        if (bytes(winner).length <= 0) revert NoValidWinner();
         isCompleted = true;
 
-        emit WinnerDeclared(winner, highestVotes);
+        if (highestVotes == 0) {
+            revert NoValidWinner();
+        }
+
+        if (drawCount == 1) {
+            emit WinnerDeclared(winner, highestVotes);
+        } else {
+            string[] memory drawCandidates = new string[](drawCount);
+            for (uint256 i = 0; i < drawCount; i++) {
+                drawCandidates[i] = tempDrawCandidates[i];
+            }
+            emit DrawOccurred(drawCandidates, highestVotes);
+        }
     }
 
     function getResults() external view returns (Candidate[] memory) {
@@ -180,8 +200,8 @@ contract VotingPoll {
     function getPollDetails()
         external
         view
-        returns (string memory, string[] memory, string memory, uint256, uint256, uint256, uint256, address, bool)
+        returns (string memory, string memory, string[] memory, uint256, uint256, uint256, uint256, address, bool)
     {
-        return (pollName, candidates, description, maxVotes, duration, startTime, totalVoters, creator, isCompleted);
+        return (pollName, description, candidates, maxVotes, duration, startTime, totalVoters, creator, isCompleted);
     }
 }
