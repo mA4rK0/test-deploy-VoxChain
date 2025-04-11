@@ -24,7 +24,7 @@ contract VotingSystemFactoryTest is Test {
         uint256 duration = 1 days;
 
         vm.prank(user1);
-        factory.createPoll(pollName, candidates, description, maxVotes, duration);
+        factory.createPoll(pollName, description, candidates, maxVotes, duration);
 
         uint256 totalPolls = factory.getTotalPolls();
         assertEq(totalPolls, 1, "Total polls should be 1");
@@ -44,7 +44,7 @@ contract VotingSystemFactoryTest is Test {
         uint256 duration = 1 days;
 
         vm.prank(user1);
-        factory.createPoll(pollName, candidates, description, maxVotes, duration);
+        factory.createPoll(pollName, description, candidates, maxVotes, duration);
 
         VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(1);
         VotingPoll poll = VotingPoll(pollInfo.pollAddress);
@@ -83,7 +83,7 @@ contract VotingSystemFactoryTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(VotingPoll.InsufficientCandidates.selector, candidates));
         vm.prank(user1);
-        factory.createPoll(pollName, candidates, description, maxVotes, duration);
+        factory.createPoll(pollName, description, candidates, maxVotes, duration);
     }
 
     function test_MaxVotes_Reached() public {
@@ -96,7 +96,7 @@ contract VotingSystemFactoryTest is Test {
         uint256 duration = 1 days;
 
         vm.prank(user1);
-        factory.createPoll(pollName, candidates, description, maxVotes, duration);
+        factory.createPoll(pollName, description, candidates, maxVotes, duration);
 
         VotingSystemFactory.PollInfo memory pollInfo = factory.getPoll(1);
         VotingPoll poll = VotingPoll(pollInfo.pollAddress);
