@@ -2,21 +2,24 @@
 import React, { useEffect, useState } from "react";
 import {
   useActiveAccount,
+  useContractEvents,
   useReadContract,
   useSendAndConfirmTransaction,
 } from "thirdweb/react";
 import {
   prepareContractCall,
   sendAndConfirmTransaction,
+  prepareEvent,
+  getContractEvents,
   sendTransaction as sendTx,
 } from "thirdweb";
 import { client } from "@/lib/client";
 import { getContract, readContract } from "thirdweb";
 import { sepolia } from "thirdweb/chains";
-import { User, User2, UserRoundIcon } from "lucide-react";
 import Image from "next/image";
 import shortenAddress from "@/utils/shortenAddress";
 import Countdown from "react-countdown";
+import { toast } from "sonner";
 /**
  * PollInfo component renders information related to a poll.
  *
@@ -32,7 +35,11 @@ interface PollData {
   totalVoters: number;
   isCompleted: boolean;
 }
-
+interface EndResult {
+  name: string;
+  votes: number;
+  percent: number;
+}
 const initialPollData = {
   candidates: [],
   pollName: "",
@@ -47,8 +54,10 @@ const PollInfo = (props: { address: string; creator?: string }) => {
   const { address, creator = "" } = props;
   const [pollData, setPollData] = useState<PollData>(initialPollData);
   const [hasVoted, setHasVoted] = useState<boolean>(false);
-  // state countdown end
-  const [countDownEnd, setCountDownEnd] = useState(false);
+  const [isNoWinner, setIsNoWinner] = useState<boolean>(false);
+  const [endResult, setEndResult] = useState<EndResult[]>([]);
+  // is ended
+  const [isEnded, setIsEnded] = useState(false);
   const wallet = useActiveAccount();
   const contract = getContract({
     chain: sepolia,
@@ -56,14 +65,25 @@ const PollInfo = (props: { address: string; creator?: string }) => {
     address: address,
   });
 
+  const preparedVoted = prepareEvent({
+    signature: "event WinnerDeclared(string indexed _winner, uint256 _votes)",
+  });
+  // const preparedVoted = prepareEvent({
+  //   signature: "event Voted(address _voter, string _candidate)",
+  // });
+
   const {
-    mutate: sendTransaction,
-    isPending,
-    isError,
+    data: awo,
+
     error,
-    isSuccess,
-    data,
-  } = useSendAndConfirmTransaction();
+    status,
+    dataUpdatedAt,
+  } = useContractEvents({
+    contract: contract,
+    events: [preparedVoted],
+  });
+
+  console.log(awo, error, status, dataUpdatedAt);
 
   const handleVote = async (_candidate: string) => {
     if (!wallet) return;
@@ -77,13 +97,36 @@ const PollInfo = (props: { address: string; creator?: string }) => {
         transaction,
         account: wallet,
       });
-
-      console.log(transactionHash);
-    } catch (error) {
-      console.log("error vote", error);
+      if (transactionHash) {
+        toast.success(`Your vote is success : ${transactionHash}`);
+      }
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
+  const handleWinner = async () => {
+    if (pollData.startTime === 0 || pollData.duration === 0) return;
+    const endTime = (pollData.startTime + pollData.duration) * 1000;
+    if (Date.now() > endTime && !pollData.isCompleted) {
+      async function durationEnd() {
+        if (!wallet) return;
+        const transaction = prepareContractCall({
+          contract,
+          method: "function chooseWinner()",
+          params: [],
+        });
+        try {
+          const data = await sendTx({ transaction, account: wallet });
+          toast.success(data.transactionHash);
+        } catch (error: any) {
+          console.log(error);
+          toast.error(error.message);
+        }
+      }
+      durationEnd();
+    }
+  };
   // has Voted contract
   useEffect(() => {
     if (wallet?.address) {
@@ -99,7 +142,7 @@ const PollInfo = (props: { address: string; creator?: string }) => {
     }
   }, [wallet?.address]);
 
-  // get detail poll
+  // get detail poll`
   useEffect(() => {
     async function getDetail() {
       try {
@@ -139,50 +182,59 @@ const PollInfo = (props: { address: string; creator?: string }) => {
     getDetail();
   }, []);
 
-  // useEffect(() => {
-  //   if (pollData.startTime === 0 || pollData.duration === 0) return;
-  //   const endTime = (pollData.startTime + pollData.duration) * 1000;
-  //   if (Date.now() > endTime && !pollData.isCompleted) {
-  //     const transaction = prepareContractCall({
-  //       contract,
-  //       method: "function chooseWinner()",
-  //       params: [],
-  //     });
-
-  //     sendTransaction(transaction);
-  //   }
-  // }, [pollData]);
-
-  // console.log("iscompleted", pollData.isCompleted);
-  // console.log("choose winner", isSuccess);
-  // console.log("error no valid winner", isError);
-
-  // is Completed true
+  // if duration end and max vote sucecssfully
   useEffect(() => {
-    if (!wallet) return;
-    if (pollData.isCompleted) {
-      async function chooseWinner() {
-        const transaction = prepareContractCall({
-          contract,
-          method: "function chooseWinner()",
-          params: [],
-        });
-        try {
-          const { transactionHash } = await sendTx({
-            transaction,
-            account: wallet!,
-          });
-          console.log("success winner", transactionHash);
-        } catch (error) {
-          console.log("error choose winner", error);
-        }
-      }
-      chooseWinner();
+    if (pollData.startTime === 0 || pollData.duration === 0) return;
+    const endTime = (pollData.startTime + pollData.duration) * 1000;
+    if (Date.now() > endTime || pollData.totalVoters >= pollData.maxVotes) {
+      setIsEnded(true);
     }
-  }, [pollData.isCompleted]);
+  }, [pollData]);
+
+  // get result
+  useEffect(() => {
+    if (!isEnded) return;
+    async function getResults() {
+      const [getResult, noWinner] = await Promise.all([
+        readContract({
+          contract,
+          method:
+            "function getResults() view returns ((string name, uint256 votes)[])",
+          params: [],
+        }),
+        readContract({
+          contract,
+          method: "function isNoWinner() view returns (bool)",
+          params: [],
+        }),
+      ]);
+      // Convert BigInt to number
+
+      const resultConverted = getResult.map(
+        (item: { name: string; votes: bigint }) => ({
+          name: item.name,
+          votes: Number(item.votes), // <-- konversi di sini
+          percent:
+            pollData.totalVoters === 0
+              ? 0
+              : (Number(item.votes) / pollData.totalVoters) * 100,
+        })
+      );
+      // Urutkan berdasarkan votes (desc)
+      const sortedResults = resultConverted.sort((a, b) => b.votes - a.votes);
+      setEndResult(sortedResults);
+      setIsNoWinner(noWinner);
+    }
+    getResults();
+  }, [isEnded]);
+
   return (
     <div className="font-light text-xl cursor-default">
-      <div className="text-center text-[40px] mt-7">
+      <div
+        className={`text-center text-[40px] mt-7 ${
+          pollData.isCompleted ? "" : ""
+        }`}
+      >
         {pollData.pollName && pollData.pollName}
       </div>
       <div className="mx-auto mt-5 px-2 py-1 w-full  max-w-[956px] h-full min-h-[40.813rem]  xl:max-h-[40.813rem]  bg-purple-dark relative">
@@ -195,13 +247,25 @@ const PollInfo = (props: { address: string; creator?: string }) => {
               date={(pollData.startTime + pollData.duration) * 1000}
               renderer={({ completed, hours, minutes, seconds }) => {
                 if (completed) {
-                  return <span>Voting ended</span>;
+                  return (
+                    <span className="text-xs bg-black rounded-full px-2 py-1">
+                      Voting ended
+                    </span>
+                  );
                 }
                 return (
-                  <span>
-                    {hours.toString().padStart(2, "0")}:
-                    {minutes.toString().padStart(2, "0")}:
-                    {seconds.toString().padStart(2, "0")}
+                  <span className="flex items-center gap-1 bg-black rounded-full px-1">
+                    <Image
+                      width={26}
+                      height={26}
+                      src={"/TimeIcon.png"}
+                      alt="time icon"
+                    />
+                    <span className="text-sm">
+                      {hours.toString().padStart(2, "0")}:
+                      {minutes.toString().padStart(2, "0")}:
+                      {seconds.toString().padStart(2, "0")}
+                    </span>
                   </span>
                 );
               }}
@@ -209,53 +273,86 @@ const PollInfo = (props: { address: string; creator?: string }) => {
           )}
         </div>
         {/* header */}
-        <h1 className="text-[#7B7474] flex gap-1 text-center justify-center mt-3">
-          <span>Choose only</span>
-          <span className="font-semibold">ONE</span>
-        </h1>
+        <Header isCompleted={pollData.isCompleted} isNoWinner={isNoWinner} />
         {/* candidates */}
-        <div className="flex justify-around mt-7">
-          {pollData.candidates.map((name, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-5 justify-center items-center"
-            >
-              <div>
-                {name
+        <div className="mt-7">
+          {pollData.isCompleted ? (
+            isNoWinner ? (
+              <div className="flex justify-around">
+                <CandidateCard data={endResult[0]} position="default" />
+                <CandidateCard data={endResult[1]} position="default" />
+                <CandidateCard data={endResult[2]} position="default" />
+              </div>
+            ) : (
+              endResult.length > 0 && (
+                <div className="flex justify-around">
+                  <CandidateCard data={endResult[1]} position="left" />
+                  <CandidateCard data={endResult[0]} position="center" />
+                  <CandidateCard data={endResult[2]} position="right" />
+                </div>
+              )
+            )
+          ) : (
+            // voting
+            <div className="flex justify-around">
+              {pollData.candidates.map((name, i) => {
+                const formattedName = name
                   .split(" ")
                   .map(
                     (kata) =>
                       kata.charAt(0).toUpperCase() + kata.slice(1).toLowerCase()
                   )
-                  .join(" ")}
-              </div>
+                  .join(" ");
 
-              <Image
-                src={"/User.png"}
-                className=""
-                width={90}
-                height={90}
-                alt="user"
-              />
+                const isDisabled = isEnded || hasVoted;
+                const buttonClass = isDisabled
+                  ? "bg-red-500 cursor-not-allowed"
+                  : "bg-[#2D2929] hover:bg-black cursor-pointer";
 
-              <button
-                className={`  flex px-[2.12rem] py-2 ${
-                  isError || hasVoted
-                    ? "bg-red-500 cursor-not-allowed"
-                    : "bg-[#2D2929] hover:bg-black cursor-pointer"
-                } text-white rounded-lg   `}
-                onClick={() => handleVote(name)}
-                disabled={isError || hasVoted}
-              >
-                Vote
-              </button>
+                return (
+                  <div
+                    key={i}
+                    className="flex flex-col gap-5 justify-center items-center"
+                  >
+                    <div>{formattedName}</div>
+
+                    <Image src="/User.png" width={90} height={90} alt="user" />
+
+                    <button
+                      className={`flex px-[2.12rem] py-2 text-white rounded-lg ${buttonClass}`}
+                      onClick={() => handleVote(name)}
+                      disabled={isDisabled}
+                    >
+                      Vote
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
+
         {/* is already voting or not */}
-        <div className="text-[#BD51EC] font-semibold text-2xl mt-5 text-center">
-          {hasVoted ? "You already voted once!" : "The choice is yours"}
+        <div className="text-[#BD51EC] font-semibold text-2xl mt-5 text-center flex flex-col items-center gap-3">
+          <span>
+            {hasVoted && !isEnded
+              ? "You already voted once!"
+              : (hasVoted && isEnded) || (!hasVoted && isEnded)
+              ? "voting already end"
+              : "The choice is yours"}
+          </span>
+          {(isEnded && !pollData.isCompleted) ||
+          (pollData.totalVoters >= pollData.maxVotes &&
+            !pollData.isCompleted) ? (
+            <button
+              className="w-fit bg-red-500 hover:bg-red-600 text-white font-light text-md px-3 py-1 rounded-md cursor-pointer"
+              onClick={handleWinner}
+            >
+              check the winner
+            </button>
+          ) : null}
         </div>
+
         {/* description */}
         <div className=" mt-5 px-7 pb-4">
           <div className="border-y-[5px] border-white w-full pt-2 pb-10">
@@ -274,3 +371,65 @@ const PollInfo = (props: { address: string; creator?: string }) => {
 };
 
 export default PollInfo;
+
+const CandidateCard = ({
+  data,
+  position,
+}: {
+  data: EndResult;
+  position: "left" | "center" | "right" | "default";
+}) => {
+  const name = data.name
+    .split(" ")
+    .map((kata) => kata.charAt(0).toUpperCase() + kata.slice(1).toLowerCase())
+    .join(" ");
+  const positionStyles = {
+    left: "order-1",
+    center: "order-2",
+    right: "order-3",
+    default: "",
+  };
+
+  return (
+    <div
+      className={`flex flex-col gap-5 justify-center items-center ${positionStyles[position]}`}
+    >
+      <div className={`${position == "center" ? "font-semibold" : ""}`}>
+        {name}
+      </div>
+      <Image
+        src="/User.png"
+        width={position === "center" ? 110 : 90}
+        height={position === "center" ? 110 : 90}
+        alt="user"
+      />
+      <div className={`${position == "center" ? "font-semibold" : ""}`}>
+        {data.percent}%
+      </div>
+    </div>
+  );
+};
+
+const Header = (props: { isCompleted: boolean; isNoWinner: boolean }) => {
+  const { isCompleted, isNoWinner } = props;
+  return (
+    <div className=" mt-3">
+      {isCompleted ? (
+        isNoWinner ? (
+          <h1 className="text-[#BD51EC] text-center text-4xl font-semibold ">
+            Draw
+          </h1>
+        ) : (
+          <h1 className="text-[#BD51EC] text-center text-4xl font-semibold ">
+            Winner
+          </h1>
+        )
+      ) : (
+        <h1 className="text-[#7B7474] flex gap-1 text-center justify-center">
+          <span>Choose only</span>
+          <span className="font-semibold">ONE</span>
+        </h1>
+      )}
+    </div>
+  );
+};
