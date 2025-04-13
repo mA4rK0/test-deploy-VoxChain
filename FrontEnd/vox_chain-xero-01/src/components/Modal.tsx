@@ -1,8 +1,6 @@
 "use client";
 import React from "react";
 import BackgroundOpacity from "./BackgroundOpacity";
-import { useRouter } from "next/navigation";
-// import { redirect } from "next/navigation";
 
 const Modal = ({
   children,
@@ -11,8 +9,6 @@ const Modal = ({
   children: React.ReactNode;
   handleCloseModal?: () => void;
 }) => {
-  const router = useRouter();
-
   return (
     <div className=" fixed inset-0 w-full  h-screen flex justify-center items-center max-2xl:xl:py-3 p-3 text-white z-10">
       <BackgroundOpacity handleCloseModal={handleCloseModal} />

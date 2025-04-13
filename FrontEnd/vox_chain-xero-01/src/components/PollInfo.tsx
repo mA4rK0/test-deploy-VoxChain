@@ -1,17 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import {
-  useActiveAccount,
-  useContractEvents,
-  useReadContract,
-  useSendAndConfirmTransaction,
-} from "thirdweb/react";
+import { useActiveAccount, useContractEvents } from "thirdweb/react";
 import {
   prepareContractCall,
-  sendAndConfirmTransaction,
-  prepareEvent,
-  getContractEvents,
   sendTransaction as sendTx,
+  prepareEvent,
 } from "thirdweb";
 import { client } from "@/lib/client";
 import { getContract, readContract } from "thirdweb";
@@ -20,11 +13,6 @@ import Image from "next/image";
 import shortenAddress from "@/utils/shortenAddress";
 import Countdown from "react-countdown";
 import { toast } from "sonner";
-/**
- * PollInfo component renders information related to a poll.
- *
- * @param {Object} props - The properties passed to the component.
- */
 interface PollData {
   pollName: string;
   candidates: string[];
@@ -50,8 +38,12 @@ const initialPollData = {
   startTime: 0,
   totalVoters: 0,
 };
-const PollInfo = (props: { address: string; creator?: string }) => {
-  const { address, creator = "" } = props;
+const PollInfo = (props: {
+  address: string;
+  creator?: string;
+  setCloseModal: React.Dispatch<React.SetStateAction<string>>;
+}) => {
+  const { address, creator = "", setCloseModal } = props;
   const [pollData, setPollData] = useState<PollData>(initialPollData);
   const [hasVoted, setHasVoted] = useState<boolean>(false);
   const [isNoWinner, setIsNoWinner] = useState<boolean>(false);
@@ -65,28 +57,30 @@ const PollInfo = (props: { address: string; creator?: string }) => {
     address: address,
   });
 
-  const preparedVoted = prepareEvent({
+  const preparedWinner = prepareEvent({
     signature: "event WinnerDeclared(string indexed _winner, uint256 _votes)",
   });
-  // const preparedVoted = prepareEvent({
-  //   signature: "event Voted(address _voter, string _candidate)",
-  // });
 
-  const {
-    data: awo,
-
-    error,
-    status,
-    dataUpdatedAt,
-  } = useContractEvents({
-    contract: contract,
-    events: [preparedVoted],
+  const preparedVoted = prepareEvent({
+    signature: "event Voted(address _voter, string _candidate)",
   });
 
-  console.log(awo, error, status, dataUpdatedAt);
+  const { data: winnerEvents, isLoading: isEventWinnerLoading } =
+    useContractEvents({
+      contract: contract,
+      events: [preparedWinner],
+    });
+  const { data: votedEvents, isLoading: isEventVotedLoading } =
+    useContractEvents({
+      contract,
+      events: [preparedVoted],
+    });
 
+  console.log(votedEvents, "votedEvents");
   const handleVote = async (_candidate: string) => {
     if (!wallet) return;
+    let toastId;
+    toastId = toast.loading("Loading Transaction...");
     const transaction = prepareContractCall({
       contract,
       method: "function vote(string _candidate)",
@@ -102,6 +96,9 @@ const PollInfo = (props: { address: string; creator?: string }) => {
       }
     } catch (error: any) {
       toast.error(error.message);
+    } finally {
+      setCloseModal("");
+      toast.dismiss(toastId);
     }
   };
 
@@ -111,6 +108,8 @@ const PollInfo = (props: { address: string; creator?: string }) => {
     if (Date.now() > endTime && !pollData.isCompleted) {
       async function durationEnd() {
         if (!wallet) return;
+        let toastId;
+        toastId = toast.loading("Loading Transaction...");
         const transaction = prepareContractCall({
           contract,
           method: "function chooseWinner()",
@@ -122,6 +121,8 @@ const PollInfo = (props: { address: string; creator?: string }) => {
         } catch (error: any) {
           console.log(error);
           toast.error(error.message);
+        } finally {
+          toast.dismiss(toastId);
         }
       }
       durationEnd();
@@ -178,8 +179,14 @@ const PollInfo = (props: { address: string; creator?: string }) => {
         console.log(error);
       }
     }
-
-    getDetail();
+    if (
+      (!isEventWinnerLoading && winnerEvents) ||
+      (votedEvents && !isEventVotedLoading)
+    ) {
+      getDetail();
+    } else {
+      getDetail();
+    }
   }, []);
 
   // if duration end and max vote sucecssfully
