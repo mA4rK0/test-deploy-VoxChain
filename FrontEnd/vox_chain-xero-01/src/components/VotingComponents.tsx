@@ -1,14 +1,20 @@
 import { Copy, CopyCheck, ExternalLink, Search, Users } from "lucide-react";
 import React, { ChangeEventHandler, useEffect, useState } from "react";
 import CreatePolling from "./CreatePolling";
-import { prepareEvent, readContract } from "thirdweb";
+import {
+  getContract,
+  getContractEvents,
+  prepareEvent,
+  readContract,
+} from "thirdweb";
 import { useContractEvents } from "thirdweb/react";
-import { contract } from "@/lib/client";
+import { client, contract } from "@/lib/client";
 import shortenAddress from "@/utils/shortenAddress";
 import copyToClipboard from "@/utils/copyPaste";
 import Link from "next/link";
 import Modal from "./Modal";
 import PollInfo from "./PollInfo";
+import { sepolia } from "thirdweb/chains";
 interface votingProps {
   pollAddress: string;
   creator: string;
@@ -33,6 +39,7 @@ const VotingComponents = () => {
   const [votingData, setVotingData] = useState<votingProps[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [detailPolls, setDetailsPolls] = useState<detailVoting[]>([]);
+  const [winner, setWinner] = useState([]);
   const factoryEvent = prepareEvent({
     signature:
       "event PollCreated(address indexed pollAddress, string indexed pollName, address creator)",
@@ -141,6 +148,33 @@ const VotingComponents = () => {
       fetchDataPolls();
     }
   }, [contractEvents, isEventsLoading]);
+
+  useEffect(() => {
+    if (votingData.length > 0) {
+      async function winnerDeclared() {
+        const winnerEvents = votingData.map(async (item) => {
+          const contractEvent = getContract({
+            address: item.pollAddress,
+            chain: sepolia,
+            client: client,
+          });
+          const preparedVoted = prepareEvent({
+            signature: "event Voted(address _voter, string _candidate)",
+          });
+
+          const data = await getContractEvents({
+            contract: contractEvent,
+            events: [preparedVoted],
+          });
+
+          return data;
+        });
+        console.log(votingData[0].pollAddress);
+        // setWinner(winnerEvents);
+      }
+      winnerDeclared();
+    }
+  }, [votingData]);
   return (
     <div className="w-full px-10  mt-20 font-inter">
       {/* modal create voting */}
