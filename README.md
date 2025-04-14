@@ -4,21 +4,28 @@ VoxChain is a decentralised voting platform built on blockchain technology. With
 
 ## Main Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+-   ✅ Create on-chain polls
+-   📊 Voting is done with your wallet account
+-   🔒 Data stored on blockchain (immutability & transparency)
+-   📝 Auditable smart contracts
+-   🌐 Integrated with wallets like MetaMask
 
-## Documentation
+## Tools
 
-https://book.getfoundry.sh/
+- **Solidity** – Smart contracts
+- **Foundry** – Development & testing
+- **Thirdweb** -
+- **Next.js** - Front-end Framework
+- **Tailwind CSS** - CSS Framework
+- **Sepolia Testnet** - Blockchain Network
 
-## Usage
+## Installation & Run Project
 
-### Build
+### Clone Repository
 
 ```shell
-$ forge build
+git clone https://github.com/username/voxchain.git
+cd voxchain
 ```
 
 ### Test
