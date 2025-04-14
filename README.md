@@ -1,8 +1,8 @@
-## Foundry
+# VoxChain
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
+VoxChain is a decentralised voting platform built on blockchain technology. With VoxChain, anyone can create and participate in polls with the assurance of security, transparency, and no central authority.
+---
+## Main Features
 
 -   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
 -   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
