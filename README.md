@@ -1,6 +1,7 @@
 # VoxChain
 
 VoxChain is a decentralised voting platform built on blockchain technology. With VoxChain, anyone can create and participate in polls with the assurance of security, transparency, and no central authority.
+
 ---
 ## Main Features
 
