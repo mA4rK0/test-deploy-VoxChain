@@ -67,3 +67,9 @@ $ anvil
 ```shell
 $ forge script script/VotingSystem.s.sol:VotingSystemScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
+
+## Licence
+
+This project uses the MIT License.
+
+Created by [@mA4rK0](https://github.com/mA4rK0) & [@isfndiar](https://github.com/isfndiar).
