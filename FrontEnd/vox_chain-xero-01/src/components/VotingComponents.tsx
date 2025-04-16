@@ -33,7 +33,6 @@ const VotingComponents = () => {
   const [mergedPollsData, setMergedPollsData] = useState<
     (votingProps & detailVoting)[]
   >([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const factoryEvent = prepareEvent({
     signature:
       "event PollCreated(address indexed pollAddress, string indexed pollName, address creator)",
@@ -84,8 +83,6 @@ const VotingComponents = () => {
     if (!isEventsLoading && contractEvents) {
       const fetchDataPolls = async () => {
         try {
-          setIsLoading(true);
-
           // Get total polls count first
           const totalPolls = await readContract({
             contract,
@@ -145,7 +142,6 @@ const VotingComponents = () => {
         } catch (error) {
           console.error("Error fetching poll data:", error);
         } finally {
-          setIsLoading(false);
         }
       };
 
