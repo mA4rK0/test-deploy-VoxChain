@@ -1,42 +1,59 @@
-## Foundry
+# VoxChain
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+VoxChain is a decentralised voting platform built on blockchain technology. With VoxChain, anyone can create and participate in polls with the assurance of security, transparency, and no central authority.
 
-Foundry consists of:
+## Main Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+-   ✅ Create on-chain polls
+-   📊 Voting is done with your wallet account
+-   🔒 Data stored on blockchain (immutability & transparency)
+-   📝 Auditable smart contracts
+-   🌐 Integrated with wallets like MetaMask
 
-## Documentation
+## Tools
 
-https://book.getfoundry.sh/
+- **Solidity** – Smart contracts
+- **Foundry** – Development & testing
+- **Thirdweb** - Prebuilt smart contracts, SDK, and dashboard UI for blockchain
+- **Next.js** - Front-end Framework
+- **Tailwind CSS** - CSS Framework
+- **Sepolia Testnet** - Blockchain Network
 
-## Usage
+## Installation & Run Project
 
-### Build
+### Clone Repository
 
 ```shell
-$ forge build
+git clone https://github.com/VoxChain-Xero-01/VoxChain-Xero-01.git
+cd VoxChain-Xero-01
+```
+
+### Install Dependencies
+
+```shell
+# Smart Contracts
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+forge install
+
+# Front-end
+cd ../FrontEnd/vox_chain-xero-01
+npm install
+```
+
+### .env Configuration
+
+create an `.env` file inside the FrontEnd/vox_chain-xero-01 folder
+
+```.env
+THIRDWEB_SECRET_KEY=YOUR_THIRDWEB_SECRET_KEY
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=YOUR_THIRDWEB_CLIENT_ID
 ```
 
 ### Test
 
 ```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+forge test -vvv
 ```
 
 ### Anvil
@@ -48,19 +65,11 @@ $ anvil
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/VotingSystem.s.sol:VotingSystemScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
-### Cast
+## Licence
 
-```shell
-$ cast <subcommand>
-```
+This project uses the MIT License.
 
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Created by [@mA4rK0](https://github.com/mA4rK0) & [@isfndiar](https://github.com/isfndiar).
