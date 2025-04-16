@@ -1,11 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useActiveAccount, useContractEvents } from "thirdweb/react";
-import {
-  prepareContractCall,
-  sendTransaction as sendTx,
-  prepareEvent,
-} from "thirdweb";
+import { useActiveAccount } from "thirdweb/react";
+import { prepareContractCall, sendTransaction as sendTx } from "thirdweb";
 import { client } from "@/lib/client";
 import { getContract, readContract } from "thirdweb";
 import { sepolia } from "thirdweb/chains";
@@ -48,6 +44,7 @@ const PollInfo = (props: {
   const [hasVoted, setHasVoted] = useState<boolean>(false);
   const [isNoWinner, setIsNoWinner] = useState<boolean>(false);
   const [endResult, setEndResult] = useState<EndResult[]>([]);
+  const position = ["center", "left", "right"] as const;
   // is ended
   const [isEnded, setIsEnded] = useState(false);
   const wallet = useActiveAccount();
@@ -56,27 +53,6 @@ const PollInfo = (props: {
     client: client,
     address: address,
   });
-
-  const preparedWinner = prepareEvent({
-    signature: "event WinnerDeclared(string indexed _winner, uint256 _votes)",
-  });
-
-  const preparedVoted = prepareEvent({
-    signature: "event Voted(address _voter, string _candidate)",
-  });
-
-  const { data: winnerEvents, isLoading: isEventWinnerLoading } =
-    useContractEvents({
-      contract: contract,
-      events: [preparedWinner],
-    });
-  const { data: votedEvents, isLoading: isEventVotedLoading } =
-    useContractEvents({
-      contract,
-      events: [preparedVoted],
-    });
-
-  console.log(votedEvents, "votedEvents");
   const handleVote = async (_candidate: string) => {
     if (!wallet) return;
     let toastId;
@@ -174,19 +150,16 @@ const PollInfo = (props: {
             isCompleted,
           })
         );
-        setPollData(getDetailPoll);
+        const filteredCandidates = getDetailPoll.candidates.filter(
+          (candidate) => candidate !== ""
+        );
+        setPollData({ ...getDetailPoll, candidates: filteredCandidates });
       } catch (error) {
         console.log(error);
       }
     }
-    if (
-      (!isEventWinnerLoading && winnerEvents) ||
-      (votedEvents && !isEventVotedLoading)
-    ) {
-      getDetail();
-    } else {
-      getDetail();
-    }
+
+    getDetail();
   }, []);
 
   // if duration end and max vote sucecssfully
@@ -217,89 +190,44 @@ const PollInfo = (props: {
       ]);
       // Convert BigInt to number
 
-      const resultConverted = getResult.map(
-        (item: { name: string; votes: bigint }) => ({
+      const resultConverted = getResult
+        .filter((item) => item.name !== "")
+        .map((item: { name: string; votes: bigint }) => ({
           name: item.name,
           votes: Number(item.votes), // <-- konversi di sini
           percent:
             pollData.totalVoters === 0
               ? 0
               : (Number(item.votes) / pollData.totalVoters) * 100,
-        })
-      );
+        }));
       // Urutkan berdasarkan votes (desc)
       const sortedResults = resultConverted.sort((a, b) => b.votes - a.votes);
+      console.log(sortedResults);
       setEndResult(sortedResults);
       setIsNoWinner(noWinner);
     }
     getResults();
   }, [isEnded]);
-
   return (
     <div className="font-light text-xl cursor-default">
       <div
-        className={`text-center text-[40px] mt-7 ${
+        className={`text-center text-2xl md:text-3xl xl:text-[40px] mt-14  xl:mt-7 ${
           pollData.isCompleted ? "" : ""
         }`}
       >
         {pollData.pollName && pollData.pollName}
       </div>
-      <div className="mx-auto mt-5 px-2 py-1 w-full  max-w-[956px] h-full min-h-[40.813rem]  xl:max-h-[40.813rem]  bg-purple-dark relative">
+      <div className="mx-auto mt-5 px-2 py-1 w-full   max-w-[956px]    h-full min-h-[40.813rem]  xl:max-h-[40.813rem]  bg-purple-dark relative">
         {/* countdown */}
-        <div className="absolute top-5 left-8">
-          {pollData.startTime > 0 && pollData.duration > 0 && (
-            <Countdown
-              className=""
-              daysInHours={true}
-              date={(pollData.startTime + pollData.duration) * 1000}
-              renderer={({ completed, hours, minutes, seconds }) => {
-                if (completed) {
-                  return (
-                    <span className="text-xs bg-black rounded-full px-2 py-1">
-                      Voting ended
-                    </span>
-                  );
-                }
-                return (
-                  <span className="flex items-center gap-1 bg-black rounded-full px-1">
-                    <Image
-                      width={26}
-                      height={26}
-                      src={"/TimeIcon.png"}
-                      alt="time icon"
-                    />
-                    <span className="text-sm">
-                      {hours.toString().padStart(2, "0")}:
-                      {minutes.toString().padStart(2, "0")}:
-                      {seconds.toString().padStart(2, "0")}
-                    </span>
-                  </span>
-                );
-              }}
-            />
-          )}
-        </div>
+        <CountsDown
+          duration={pollData.duration}
+          startTime={pollData.startTime}
+        />
         {/* header */}
         <Header isCompleted={pollData.isCompleted} isNoWinner={isNoWinner} />
         {/* candidates */}
         <div className="mt-7">
-          {pollData.isCompleted ? (
-            isNoWinner ? (
-              <div className="flex justify-around">
-                <CandidateCard data={endResult[0]} position="default" />
-                <CandidateCard data={endResult[1]} position="default" />
-                <CandidateCard data={endResult[2]} position="default" />
-              </div>
-            ) : (
-              endResult.length > 0 && (
-                <div className="flex justify-around">
-                  <CandidateCard data={endResult[1]} position="left" />
-                  <CandidateCard data={endResult[0]} position="center" />
-                  <CandidateCard data={endResult[2]} position="right" />
-                </div>
-              )
-            )
-          ) : (
+          {!pollData.isCompleted ? (
             // voting
             <div className="flex justify-around">
               {pollData.candidates.map((name, i) => {
@@ -321,12 +249,12 @@ const PollInfo = (props: {
                     key={i}
                     className="flex flex-col gap-5 justify-center items-center"
                   >
-                    <div>{formattedName}</div>
+                    <div className="text-sm sm:text-2xl">{formattedName}</div>
 
                     <Image src="/User.png" width={90} height={90} alt="user" />
 
                     <button
-                      className={`flex px-[2.12rem] py-2 text-white rounded-lg ${buttonClass}`}
+                      className={`flex text-xs sm:text-xl px-[2.12rem] py-2 text-white rounded-lg ${buttonClass}`}
                       onClick={() => handleVote(name)}
                       disabled={isDisabled}
                     >
@@ -336,6 +264,25 @@ const PollInfo = (props: {
                 );
               })}
             </div>
+          ) : isNoWinner ? (
+            <div className={`flex  justify-around`}>
+              {endResult.map((item, i) => (
+                <CandidateCard data={item} position="default" key={i} />
+              ))}
+            </div>
+          ) : (
+            endResult.length > 0 && (
+              // candidate card
+              <div className="flex justify-around">
+                {endResult.map((item, i) => (
+                  <CandidateCard
+                    data={item}
+                    position={position[i] ?? "default"}
+                    key={i}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
 
@@ -411,7 +358,7 @@ const CandidateCard = ({
         alt="user"
       />
       <div className={`${position == "center" ? "font-semibold" : ""}`}>
-        {data.percent}%
+        {data.percent.toFixed(2)}%
       </div>
     </div>
   );
@@ -420,7 +367,7 @@ const CandidateCard = ({
 const Header = (props: { isCompleted: boolean; isNoWinner: boolean }) => {
   const { isCompleted, isNoWinner } = props;
   return (
-    <div className=" mt-3">
+    <div className="mt-10 xl:mt-3">
       {isCompleted ? (
         isNoWinner ? (
           <h1 className="text-[#BD51EC] text-center text-4xl font-semibold ">
@@ -436,6 +383,45 @@ const Header = (props: { isCompleted: boolean; isNoWinner: boolean }) => {
           <span>Choose only</span>
           <span className="font-semibold">ONE</span>
         </h1>
+      )}
+    </div>
+  );
+};
+
+const CountsDown = (props: { startTime: number; duration: number }) => {
+  const { startTime, duration } = props;
+  return (
+    <div className="absolute top-2 sm:top-5 left-8">
+      {startTime > 0 && duration > 0 && (
+        <Countdown
+          className=""
+          daysInHours={true}
+          date={(startTime + duration) * 1000}
+          renderer={({ completed, hours, minutes, seconds }) => {
+            if (completed) {
+              return (
+                <span className="text-xs bg-black rounded-full px-2 py-1">
+                  Voting ended
+                </span>
+              );
+            }
+            return (
+              <span className="flex items-center gap-1 bg-black rounded-full px-1">
+                <Image
+                  width={26}
+                  height={26}
+                  src={"/TimeIcon.png"}
+                  alt="time icon"
+                />
+                <span className="text-sm">
+                  {hours.toString().padStart(2, "0")}:
+                  {minutes.toString().padStart(2, "0")}:
+                  {seconds.toString().padStart(2, "0")}
+                </span>
+              </span>
+            );
+          }}
+        />
       )}
     </div>
   );
