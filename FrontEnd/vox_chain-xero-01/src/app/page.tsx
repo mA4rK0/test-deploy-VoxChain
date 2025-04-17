@@ -3,8 +3,7 @@
 import VotingComponents from "@/components/VotingComponents";
 import useHydration from "@/hooks/hydration";
 import { client } from "@/lib/client";
-import { sepolia } from "thirdweb/chains";
-import { useActiveAccount, useActiveWallet, useConnectModal, useWalletBalance } from "thirdweb/react";
+import { useActiveAccount, useConnectModal } from "thirdweb/react";
 
 const Page = () => {
   const { hydration } = useHydration();
