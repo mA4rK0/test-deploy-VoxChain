@@ -24,6 +24,7 @@ interface detailVoting {
 const VotingComponents = () => {
   const [searchVoting, setSearchVoting] = useState<string>("");
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<string>();
   const [isHover, setIsHover] = useState<string>();
   const [openModal, setOpenModal] = useState<string>("");
@@ -77,100 +78,105 @@ const VotingComponents = () => {
       setMergedPollsData(oriVotingData);
     }
   };
+  const fetchDataPolls = async () => {
+    try {
+      setIsLoading(true);
+      const totalPolls = await readContract({
+        contract,
+        method: "function getTotalPolls() view returns (uint256)",
+        params: [],
+      });
 
-  // interact with smart contract
-  useEffect(() => {
-    if (!isEventsLoading && contractEvents) {
-      const fetchDataPolls = async () => {
-        try {
-          // Get total polls count first
-          const totalPolls = await readContract({
+      const indices = Array.from(
+        { length: Number(totalPolls) },
+        (_, i) => i + 1
+      );
+
+      const pollsData = await Promise.all(
+        indices.map((i) =>
+          readContract({
             contract,
-            method: "function getTotalPolls() view returns (uint256)",
-            params: [],
-          });
+            method:
+              "function getPoll(uint256 count) view returns ((address pollAddress, address creator, string pollName))",
+            params: [BigInt(i)],
+          })
+        )
+      );
 
-          // Create array of indices from 1 to totalPolls
-          const indices = Array.from(
-            { length: Number(totalPolls) },
-            (_, i) => i + 1
-          );
+      const detailPollDatas = await Promise.all(
+        pollsData.map((poll) =>
+          readContract({
+            contract,
+            method:
+              "function getPollExtendedInfo(address pollAddress) view returns (string, string, uint256, uint256, uint256, address, bool)",
+            params: [poll.pollAddress],
+          }).then(
+            ([
+              pollName,
+              description,
+              duration,
+              startTime,
+              totalVoters,
+              contractAddress,
+              isCompleted,
+            ]) => ({
+              isCompleted,
+              totalVoters: Number(totalVoters),
+              pollName,
+            })
+          )
+        )
+      );
 
-          // Fetch all polls in parallel
-          const pollsData = await Promise.all(
-            indices.map((i) =>
-              readContract({
-                contract,
-                method:
-                  "function getPoll(uint256 count) view returns ((address pollAddress, address creator, string pollName))",
-                params: [BigInt(i)],
-              })
-            )
-          );
-          // Fetch all poll details in parallel
-          const detailPollDatas = await Promise.all(
-            pollsData.map((poll) =>
-              readContract({
-                contract,
-                method:
-                  "function getPollExtendedInfo(address pollAddress) view returns (string, string, uint256, uint256, uint256, address, bool)",
-                params: [poll.pollAddress],
-              }).then(
-                ([
-                  pollName,
-                  description,
-                  duration,
-                  startTime,
-                  totalVoters,
-                  contractAddress,
-                  isCompleted,
-                ]) => ({
-                  isCompleted,
-                  totalVoters: Number(totalVoters),
-                  pollName,
-                })
-              )
-            )
-          );
-          // merged
-          const merged = pollsData.map((poll, index) => ({
-            ...poll,
-            ...detailPollDatas[index],
-          }));
-          setOriVotingData(merged);
-          setMergedPollsData(merged);
-        } catch (error) {
-          console.error("Error fetching poll data:", error);
-        } finally {
-        }
-      };
+      const merged = pollsData.map((poll, index) => ({
+        ...poll,
+        ...detailPollDatas[index],
+      }));
 
+      setOriVotingData(merged);
+      setMergedPollsData(merged);
+    } catch (error) {
+      console.error("Error fetching poll data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // interact with smart contract
+
+  useEffect(() => {
+    fetchDataPolls();
+  }, []);
+  useEffect(() => {
+    if (!isEventsLoading) {
       fetchDataPolls();
     }
-  }, [contractEvents, isEventsLoading]);
+  }, [isEventsLoading]);
 
   return (
-    <div className="w-full px-10  mt-20 font-inter">
+    <div className="w-full px-10  mt-20 pb-20 font-inter ">
       {/* modal create voting */}
       <CreatePolling isOpen={isOpen} setIsOpen={setIsOpen} />
       {/* search and create voting */}
       <div className="flex sm:flex-row flex-col gap-y-5 items-center sm:justify-between mx-auto">
         {/* search */}
-        <div className="flex-1 flex justify-center gap-6 items-center  px-10">
-          <label
-            htmlFor="search-voting"
-            className="bg-gray-custom p-1 rounded-full inline-block cursor-pointer "
-          >
-            <Search size={25} color="white" />
-          </label>
-          <div className="max-w-[753px] w-full bg-gray-custom rounded-full px-1 py-1">
-            <input
-              value={searchVoting}
-              onChange={handleSearch}
-              id={"search-voting"}
-              type="text"
-              className="h-full w-full text-white px-3 outline-none "
-            />
+        <div className="flex-1 flex flex-col sm:flex-row justify-center gap-5 items-center px-0  md:px-10">
+          <div className="flex sm:gap-5 gap-1 w-full">
+            <label
+              htmlFor="search-voting"
+              className="bg-gray-custom p-1 rounded-full inline-block cursor-pointer "
+            >
+              <Search size={25} color="white" />
+            </label>
+            <div className="max-w-[753px] w-full bg-gray-custom rounded-full px-1 py-1">
+              <input
+                value={searchVoting}
+                onChange={handleSearch}
+                placeholder="type something"
+                id={"search-voting"}
+                type="text"
+                className="h-full w-full text-white px-3 outline-none   "
+              />
+            </div>
           </div>
           <FilterComponents
             defaultStatus="all"
@@ -181,8 +187,8 @@ const VotingComponents = () => {
         <CreatePolls setIsOpen={setIsOpen} />
       </div>
       {/* voting data */}
-      <div className="container mx-auto ">
-        <div className="text-white grid xl:grid-cols-4 md:grid-cols-3 grid-cols-2  gap-3 mt-20">
+      <div className="container mx-auto mt-5 md:mt-20">
+        <div className="text-white grid xl:grid-cols-4 md:grid-cols-3 grid-cols-2  gap-3">
           {mergedPollsData.length > 0
             ? mergedPollsData.map((value, i) => (
                 <div
